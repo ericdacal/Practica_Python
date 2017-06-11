@@ -1,7 +1,7 @@
 import argparse as AP
 import xml.etree.ElementTree as ET
 import urllib.request as UL
-from math import sin,cos,sqrt,asin,pi,inf
+from math import sin,cos,sqrt,asin,pi
 
 
 def process_keys(keys):
@@ -83,6 +83,7 @@ if parser.parse_args().lan == 'fr':
             <th>Nom</th>
             <th>Adresse</th>
             <th>Description</th>
+            <th>Stations de Bicing à proximité</th>
         </tr>
         """
    
@@ -92,6 +93,7 @@ elif parser.parse_args().lan == 'es':
             <th>Nombre</th>
             <th>Dirección</th>
             <th>Descripción</th>
+            <th>Estaciones de Bicing Cercanas</th>
         </tr>
         """
 elif parser.parse_args().lan == 'en':
@@ -100,6 +102,7 @@ elif parser.parse_args().lan == 'en':
             <th>Name</th>
             <th>Address</th>
             <th>Description</th>
+            <th>Bicing Stations Nearby</th>
         </tr>
         """
 else:
@@ -108,9 +111,11 @@ else:
             <th>Nom</th>
             <th>Adreça</th>
             <th>Descripció</th>
+            <th>Estacions de Bicing Properes</th>
         </tr>
         """
 for row in inter_points.iter('row'):
+    stations = []
     for key in keys:
         htmlrow = """
         <tr>
@@ -121,24 +126,27 @@ for row in inter_points.iter('row'):
             htmlrow = htmlrow + """<td>""" + row.find('addresses').find('item').find('address').text + """</td>
             """
             if len(keys) == 1: 
-                htmlrow = htmlrow + """<td>""" + row.find('content').text + """</td>
-        #</tr>"""
+                htmlrow = htmlrow + """<td>""" + row.find('content').text + """</td>"""
             else: 
-                htmlrow = htmlrow + """<td>""" + row.find('custom_fields').find('descripcio-curta-pics').text + """</td>
-        #</tr>"""
+                htmlrow = htmlrow + """<td>""" + row.find('custom_fields').find('descripcio-curta-pics').text + """</td>"""
             for station in bicing.iter('station'):
-                    minimum = inf
-                    long1 = row.find('addresses').find('item').find('gmapx').text
+                    long1 = row.find('addresses').find('item').find('gmapy').text
                     lat1 = row.find('addresses').find('item').find('gmapx').text
                     long2 = station.find('long').text
                     lat2 = station.find('lat').text
                     d = Haversine_distance(float(long1),float(lat1),float(long2),float(lat2))
-                    print(d)
-                    if d < minimum: minimum = d
-            #print(minimum)
+                    if d <= 500 and len(stations) <= 5: stations.append(station.find('street').text)
+            htmlrow = htmlrow + """
+            <td>"""
+            for station in stations:
+                htmlrow = htmlrow + station + """ 
+                """
+            htmlrow = htmlrow  + """
+            </td>"""
             thtml = thtml + htmlrow
             
 thtml = thtml + """
+</tr>
 </table>
 </body>      
 </html>"""
