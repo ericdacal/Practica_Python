@@ -1,16 +1,149 @@
 import argparse as AP
 import xml.etree.ElementTree as ET
 import urllib.request as UL
+from ast import literal_eval
 from math import sin,cos,sqrt,asin,pi
 
 
-def process_keys(keys):
-  keys = keys.split(",")
-  keys[0] = keys[0][2:]
-  size = len(keys) - 1
-  sizek = len(keys[size]) - 1
-  keys[size] = keys[size][:sizek - 2]
-  return keys
+class Out:
+    'classe que conte sortida del programa dividida'
+    def __init__(self,llarga, curta, content_before, content_after):
+        self.llarga = llarga
+        self.curta = curta
+        self.content_before = content_before
+        self.content_after = content_after
+    def mostrarOut(self):
+        final = ""
+        if len(self.llarga) == 1:
+            final = self.content_before[0] + self.llarga[0] +  self.content_after[0]
+        else:
+            i = 0
+            while i < len(self.llarga):
+                #print(self.content_before[i] + self.curta[i] + self.content_after[i])
+                final = final + self.content_before[i] + self.curta[i] +  self.content_after[i]
+                i = i + 1
+        return final
+    
+    def sumar_sortida(self,out):
+        i = 0
+        while i < len(out.llarga):
+            self.llarga.append(out.llarga[i])
+            self.curta.append(out.curta[i])
+            self.content_before.append(out.content_before[i])
+            self.content_after.append(out.content_after[i])
+            i = i + 1
+
+
+def process_keys(keys, container):
+    out = Out([],[],[],[])
+    inter_points = select_intereset_point_lan(parser.parse_args().lan)
+    bicing = bicing_stations()   
+    html = ""
+    if container == "list":
+        if isinstance(keys[0],list): 
+            out.sumar_sortida(process_keys(keys[0],"list"))
+        elif isinstance(keys[0],tuple): 
+            out.sumar_sortida(process_keys(keys[0],"tuple"))
+        elif isinstance(keys[0],dict):
+            out.sumar_sortida(process_keys(keys[0],"dict"))
+        else:
+            out.sumar_sortida(process_keys(keys[0], "string"))
+        del keys[0]
+        if len(keys) == 0: return out
+        out.sumar_sortida(process_keys(keys,"list"))
+        return out
+
+    elif container == "tuple":
+        if isinstance(keys[0],list): 
+            out.sumar_sortida(process_keys(keys[0],"list"))
+        elif isinstance(keys[0],tuple): 
+            out.sumar_sortida(process_keys(keys[0],"tuple"))
+        elif isinstance(keys[0],dict):
+            out.sumar_sortida(process_keys(keys[0],"dict"))
+        else:
+            out.sumar_sortida(process_keys(keys[0], "string"))
+        del keys[0]
+        if len(keys) == 0: return out
+        out.sumar_sortida(process_keys(keys,"tuple"))
+        return out
+    elif container == "dict":
+        for row in inter_points.iter('row'):
+            entra = False
+            stations = []
+            htmlrow = """
+            <tr>
+                """
+            i = 0
+            dic_values = list(keys.values())
+            dic_keys = list(keys.keys())
+            while(i < len(dic_values)):
+                if dic_keys[i] == 'location':
+                    if (row.find('addresses').find('item').find('address').text.find(dic_values[i].capitalize()) > -1 or row.find('addresses').find('item').find('address').text.find(dic_values[i]) > - 1): entra  = True
+                    elif (row.find('addresses').find('item').find('district') != None): 
+                        if row.find('addresses').find('item').find('district').text.find(dic_values[i].capitalize()) > -1 or row.find('addresses').find('item').find('district').text.find(dic_values[i]) > - 1: entra = True
+                    elif (row.find('addresses').find('item').find('barri') != None): 
+                        if(row.find('addresses').find('item').find('barri').text.find(dic_values[i].capitalize()) > -1 or row.find('addresses').find('item').find('barri').text.find(dic_values[i]) > - 1): entra = True
+                else: 
+                    if row.find(dic_keys[i]).text.find(dic_values[i].capitalize()) > -1 or row.find(dic_keys[i]).text.find(dic_values[i]) > - 1: entra = True
+                    
+                if entra:
+                    htmlrow = htmlrow + """<td>""" + row.find('name').text + """</td>
+                    """
+                    htmlrow = htmlrow + """<td>""" + row.find('addresses').find('item').find('address').text + """</td>
+                    """
+                    out.content_before.append(htmlrow)
+                    out.curta.append("""<td>""" + row.find('custom_fields').find('descripcio-curta-pics').text + """</td>""")
+                    out.llarga.append("""<td>""" + row.find('content').text + """</td>""")
+                    for station in bicing.iter('station'):
+                            long1 = row.find('addresses').find('item').find('gmapy').text
+                            lat1 = row.find('addresses').find('item').find('gmapx').text
+                            long2 = station.find('long').text
+                            lat2 = station.find('lat').text
+                            d = Haversine_distance(float(long1),float(lat1),float(long2),float(lat2))
+                            if d <= 500 and len(stations) <= 5: stations.append(station.find('street').text)
+                    htmlrow = """
+                    <td><table>"""
+                    #station.sort()
+                    for station in stations:
+                        htmlrow = htmlrow + """<tr><td>"""+ station + """</td></tr>
+                        """
+                    html = htmlrow  + """
+                    </table></td>"""
+                    out.content_after.append(html)
+                i = i + 1
+        return out
+
+    else:
+        for row in inter_points.iter('row'):
+            stations = []
+            htmlrow = """
+            <tr>
+                """
+            if row.find('name').text.find(keys.capitalize()) > -1:
+                htmlrow = htmlrow + """<td>""" + row.find('name').text + """</td>
+                """
+                htmlrow = htmlrow + """<td>""" + row.find('addresses').find('item').find('address').text + """</td>
+                """
+                out.content_before.append(htmlrow)
+                out.curta.append("""<td>""" + row.find('custom_fields').find('descripcio-curta-pics').text + """</td>""")
+                out.llarga.append("""<td>""" + row.find('content').text + """</td>""")
+                for station in bicing.iter('station'):
+                        long1 = row.find('addresses').find('item').find('gmapy').text
+                        lat1 = row.find('addresses').find('item').find('gmapx').text
+                        long2 = station.find('long').text
+                        lat2 = station.find('lat').text
+                        d = Haversine_distance(float(long1),float(lat1),float(long2),float(lat2))
+                        if d <= 500 and len(stations) <= 5: stations.append(station.find('street').text)
+                htmlrow = """
+                <td><table>"""
+                #station.sort()
+                for station in stations:
+                    htmlrow = htmlrow + """<tr><td>"""+ station + """</td></tr>
+                    """
+                html = htmlrow  + """
+                </table></td>"""
+                out.content_after.append(html)
+        return out
 
 
 def select_intereset_point_lan (lan):
@@ -42,10 +175,6 @@ parser.add_argument('--lan', dest='lan', default='cat',help='language to search'
 parser.add_argument('--key', dest='key', help='key to search')
 
 keys = parser.parse_args().key
-keys = process_keys(keys)
-inter_points = select_intereset_point_lan(parser.parse_args().lan)
-bicing = bicing_stations()
-
 
 f = open('table.html','w')
 
@@ -68,7 +197,7 @@ thtml = """
     }
 
     tr:nth-child(even) {
-        background-color: #dddddd;
+        background-color: #ffffff;
     }
     </style>
     </head>
@@ -114,37 +243,14 @@ else:
             <th>Estacions de Bicing Properes</th>
         </tr>
         """
-for row in inter_points.iter('row'):
-    stations = []
-    for key in keys:
-        htmlrow = """
-        <tr>
-            """  
-        if row.find('name').text.capitalize().find(key) > -1: 
-            htmlrow = htmlrow + """<td>""" + row.find('name').text + """</td>
-            """
-            htmlrow = htmlrow + """<td>""" + row.find('addresses').find('item').find('address').text + """</td>
-            """
-            if len(keys) == 1: 
-                htmlrow = htmlrow + """<td>""" + row.find('content').text + """</td>"""
-            else: 
-                htmlrow = htmlrow + """<td>""" + row.find('custom_fields').find('descripcio-curta-pics').text + """</td>"""
-            for station in bicing.iter('station'):
-                    long1 = row.find('addresses').find('item').find('gmapy').text
-                    lat1 = row.find('addresses').find('item').find('gmapx').text
-                    long2 = station.find('long').text
-                    lat2 = station.find('lat').text
-                    d = Haversine_distance(float(long1),float(lat1),float(long2),float(lat2))
-                    if d <= 500 and len(stations) <= 5: stations.append(station.find('street').text)
-            htmlrow = htmlrow + """
-            <td>"""
-            for station in stations:
-                htmlrow = htmlrow + station + """ 
-                """
-            htmlrow = htmlrow  + """
-            </td>"""
-            thtml = thtml + htmlrow
-            
+        
+keys = literal_eval(keys)
+if isinstance(keys,list): container = "list"
+elif isinstance(keys,tuple): container = "tuple"
+elif isinstance(keys,dict): container = "dict"
+else: container = "string"
+out = process_keys(keys, container)
+thtml = thtml + out.mostrarOut()  
 thtml = thtml + """
 </tr>
 </table>
